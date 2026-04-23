@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>小象的技术栈</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="video-background"><video autoplay muted loop playsinline><source src="assets/video/bg.mp4" type="video/mp4"></video></div>
+    <div class="video-overlay"></div>
+    <canvas id="sakura-canvas"></canvas>
+
+    <div class="page-content">
+        <header class="site-header">
+            <div class="container">
+                <h1>小象的技术栈</h1>
+                <nav><a href="index.html">首页</a><a href="admin.html">写文章</a></nav>
+            </div>
+        </header>
+        <main class="container">
+            <div id="post-list" class="latest-posts"></div>
+        </main>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        fetch('/api/posts')
+            .then(res => res.json())
+            .then(posts => {
+                const list = document.getElementById('post-list');
+                if(posts.length === 0) return list.innerHTML = '<p style="color:#fff;">暂无文章，去写一篇吧！</p>';
+                list.innerHTML = posts.map(post => `
+                    <div class="card">
+                        <h3><a href="article.html?id=${post.id}">${post.title}</a></h3>
+                        <p class="meta-line">分类：${post.category} | 日期：${post.date}</p>
+                    </div>
+                `).join('');
+            });
+    </script>
+</body>
+</html>
