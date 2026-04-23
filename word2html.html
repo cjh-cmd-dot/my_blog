@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word 转 HTML 工具</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="video-background">
+    <video autoplay muted loop playsinline id="bgVideo">
+      <source src="assets/video/bg.mp4" type="video/mp4" />
+      你的浏览器不支持 video 标签
+    </video>
+  </div>
+
+  <div class="video-overlay"></div>
+  <canvas id="sakura-canvas"></canvas>
+
+  <div class="page-content">
+    <header class="site-header">
+      <div class="container">
+        <h1>Word 转 HTML 工具</h1>
+        <nav>
+          <a href="index.html">首页</a>
+          <a href="articles.html">文章</a>
+          <a href="about.html">关于我</a>
+          <a href="word2html.html">Word转换工具</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <h2>使用说明</h2>
+        <p>把 Word 文本粘进左边，点击转换，右边会生成适合放进 posts.js 的 HTML 内容。</p>
+        <p>支持的简单标记：</p>
+        <ul>
+          <li>普通段落：自动转成 p</li>
+          <li>例如“1. 标题”：自动转成 h2</li>
+          <li><code>[code:c]</code> 到 <code>[/code]</code>：转成代码块</li>
+          <li><code>[img:assets/images/xxx.png]</code>：转成图片</li>
+        </ul>
+      </section>
+
+      <section class="tool-grid">
+        <div class="card">
+          <h2>输入区</h2>
+          <textarea id="input-text" class="tool-textarea" placeholder="把 Word 内容粘贴到这里"></textarea>
+          <button id="convert-btn" class="tool-btn">转换</button>
+        </div>
+
+        <div class="card">
+          <h2>输出区</h2>
+          <textarea id="output-text" class="tool-textarea" placeholder="这里会生成 HTML"></textarea>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>© 2026 陈俊豪的个人网站</p>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function convertWordToHtml() {
+      const input = document.getElementById("input-text").value.trim();
+      const output = document.getElementById("output-text");
+
+      if (!input) {
+        output.value = "";
+        return;
+      }
+
+      const lines = input.split(/\r?\n/);
+      let result = "";
+      let inCodeBlock = false;
+      let codeLang = "";
+      let codeBuffer = [];
+      let inList = false;
+
+      function closeListIfNeeded() {
+        if (inList) {
+          result += "</ul>\n\n";
+          inList = false;
+        }
+      }
+
+      function flushCodeBlock() {
+        if (inCodeBlock) {
+          const codeText = codeBuffer.join("\n");
+          result += `<pre><code class="language-${codeLang}">\n${escapeHtml(codeText)}\n</code></pre>\n\n`;
+          inCodeBlock = false;
+          codeLang = "";
+          codeBuffer = [];
+        }
+      }
+
+      for (let rawLine of lines) {
+        const line = rawLine.trim();
+
+        if (inCodeBlock) {
+          if (line === "[/code]") {
+            flushCodeBlock();
+          } else {
+            codeBuffer.push(rawLine);
+          }
+          continue;
+        }
+
+        if (!line) {
+          closeListIfNeeded();
+          continue;
+        }
+
+        const codeStartMatch = line.match(/^\[code:([a-zA-Z0-9_-]+)\]$/);
+        if (codeStartMatch) {
+          closeListIfNeeded();
+          inCodeBlock = true;
+          codeLang = codeStartMatch[1];
+          codeBuffer = [];
+          continue;
+        }
+
+        const imgMatch = line.match(/^\[img:(.+)\]$/);
+        if (imgMatch) {
+          closeListIfNeeded();
+          const src = imgMatch[1].trim();
+          result += `<img src="${src}" alt="文章图片" />\n\n`;
+          continue;
+        }
+
+        if (/^\d+\./.test(line)) {
+          closeListIfNeeded();
+          result += `<h2>${line}</h2>\n\n`;
+          continue;
+        }
+
+        if (/^[-•]\s+/.test(line)) {
+          if (!inList) {
+            result += "<ul>\n";
+            inList = true;
+          }
+          result += `  <li>${line.replace(/^[-•]\s+/, "")}</li>\n`;
+          continue;
+        }
+
+        closeListIfNeeded();
+        result += `<p>${line}</p>\n\n`;
+      }
+
+      closeListIfNeeded();
+      flushCodeBlock();
+
+      output.value = result.trim();
+    }
+
+    document.getElementById("convert-btn").addEventListener("click", convertWordToHtml);
+  </script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>陈俊豪的文章站</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="video-background">
+    <video autoplay muted loop playsinline id="bgVideo">
+      <source src="assets/video/bg.mp4" type="video/mp4" />
+      你的浏览器不支持 video 标签
+    </video>
+  </div>
+
+  <div class="video-overlay"></div>
+  <canvas id="sakura-canvas"></canvas>
+
+  <div class="page-content">
+    <header class="site-header">
+      <div class="container">
+        <h1>陈俊豪的文章站</h1>
+        <p class="subtitle">记录技术、项目和学习思考</p>
+        <nav>
+          <a href="index.html">首页</a>
+          <a href="articles.html">文章</a>
+          <a href="about.html">关于我</a>
+          <a href="word2html.html">Word转换工具</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h2>欢迎来到我的网站</h2>
+        <p>
+          这里记录我的 ROS2、ESP32、嵌入式开发、项目总结和个人思考。
+        </p>
+      </section>
+
+      <section class="latest-posts">
+        <h2>最新文章</h2>
+        <div id="home-post-list"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>© 2026 陈俊豪的个人网站</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="js/posts.js"></script>
+  <script>
+    const homeList = document.getElementById("home-post-list");
+    posts.slice(0, 3).forEach(post => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <h3><a href="article.html?id=${post.id}">${post.title}</a></h3>
+        <p class="meta-line">分类：${post.category} | 日期：${post.date}</p>
+        <p>${post.summary}</p>
+      `;
+      homeList.appendChild(card);
+    });
+  </script>
+  <script src="js/main.js"></script>
+</body>
+</html>
