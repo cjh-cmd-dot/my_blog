@@ -15,8 +15,9 @@
         <header class="site-header"><div class="container"><h1>发布新文章</h1><nav><a href="index.html">返回首页</a></nav></div></header>
         <main class="container">
             <div class="card">
+                <input type="password" id="admin-pwd" placeholder="请输入管理员密码" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
                 <input type="text" id="post-title" placeholder="输入文章标题..." style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
-                <input type="text" id="post-cate" placeholder="分类（如：ROS2, ESP32）" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
+                <input type="text" id="post-cate" placeholder="分类（如：ROS 2, ESP32）" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
                 <div id="vditor"></div>
                 <button onclick="submitPost()" class="tool-btn" style="margin-top: 15px; width: 100%;">确认发布</button>
             </div>
@@ -35,16 +36,21 @@
         function submitPost() {
             const title = document.getElementById('post-title').value;
             const category = document.getElementById('post-cate').value;
+            const password = document.getElementById('admin-pwd').value;
             const content = vditor.getValue();
 
-            if(!title || !content) return alert("标题和内容不能为空");
+            if(!title || !content || !password) return alert("标题、内容和密码不能为空");
 
             fetch('/api/posts', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ title, category, content })
-            }).then(() => {
-                alert('发布成功！'); window.location.href = 'index.html';
+                body: JSON.stringify({ title, category, content, password })
+            }).then(res => res.json()).then(data => {
+                if(data.success) {
+                    alert('发布成功！'); window.location.href = 'index.html';
+                } else {
+                    alert(data.message);
+                }
             });
         }
     </script>

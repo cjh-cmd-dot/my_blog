@@ -14,28 +14,35 @@
         <header class="site-header">
             <div class="container">
                 <h1>小象的技术栈</h1>
-                <nav><a href="index.html">首页</a><a href="admin.html">写文章</a></nav>
+                <nav><a href="index.html">首页</a><a href="about.html">关于我</a><a href="admin.html">写文章</a></nav>
             </div>
         </header>
         <main class="container">
-            <div id="post-list" class="latest-posts"></div>
+            <section class="profile-card">
+                <div class="profile-avatar"><img src="assets/images/xiaoxiang.jpg" style="width:100%; height:100%; border-radius:50%; object-fit:cover;"></div>
+                <div class="profile-info">
+                    <h2>你好，我是陈俊豪</h2>
+                    <p>专注 ROS 2、嵌入式开发与机器人技术。</p>
+                    <p>正在探索轮腿机器人与计算机视觉的边界。 <a href="about.html" style="color:#ffd7e6; text-decoration:none;">了解更多 →</a></p>
+                </div>
+            </section>
+
+            <h2 style="margin-top:40px;">最新发布</h2>
+            <div id="post-list"></div>
         </main>
     </div>
-
     <script src="js/main.js"></script>
     <script>
-        fetch('/api/posts')
-            .then(res => res.json())
-            .then(posts => {
-                const list = document.getElementById('post-list');
-                if(posts.length === 0) return list.innerHTML = '<p style="color:#fff;">暂无文章，去写一篇吧！</p>';
-                list.innerHTML = posts.map(post => `
-                    <div class="card">
-                        <h3><a href="article.html?id=${post.id}">${post.title}</a></h3>
-                        <p class="meta-line">分类：${post.category} | 日期：${post.date}</p>
-                    </div>
-                `).join('');
-            });
+        fetch('/api/posts').then(res => res.json()).then(posts => {
+            const list = document.getElementById('post-list');
+            if(posts.length === 0) return list.innerHTML = '<p style="color:#fff;">暂无文章，去写一篇吧！</p>';
+            list.innerHTML = posts.map(post => `
+                <div class="card">
+                    <h3><a href="article.html?id=${post.id}">${post.title}</a></h3>
+                    <p class="meta-line">分类：${post.category} | ${post.date}</p>
+                </div>
+            `).join('');
+        });
     </script>
 </body>
 </html>
