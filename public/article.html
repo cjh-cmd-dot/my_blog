@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文章详情 - 小象的技术栈</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档详情 - 小象博客</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/vditor/dist/index.css" />
 </head>
@@ -13,15 +14,18 @@
 
     <div class="page-content">
         <header class="site-header">
-            <div class="container">
-                <h1 id="p-title">加载中...</h1>
-                <nav><a href="index.html">返回首页</a></nav>
+            <div class="container header-row">
+                <h1 id="p-title">正在加载...</h1>
+                <nav>
+                    <a href="index.html">首页</a>
+                    <a id="edit-link" href="admin.html">编辑</a>
+                </nav>
             </div>
         </header>
         <main class="container">
-            <article class="card">
-                <p id="p-meta" class="meta-line" style="margin-bottom: 20px;"></p>
-                <div id="p-content"></div>
+            <article class="card article-card">
+                <p id="p-meta" class="meta-line"></p>
+                <div id="p-content" class="article-content"></div>
             </article>
         </main>
     </div>
@@ -29,17 +33,34 @@
     <script src="https://unpkg.com/vditor/dist/method.min.js"></script>
     <script src="js/main.js"></script>
     <script>
-        const id = new URLSearchParams(window.location.search).get('id');
+        const id = new URLSearchParams(window.location.search).get("id");
+        const titleEl = document.getElementById("p-title");
+        const metaEl = document.getElementById("p-meta");
+        const contentEl = document.getElementById("p-content");
+        const editLink = document.getElementById("edit-link");
+
         fetch(`/api/posts/${id}`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("文档不存在");
+                return res.json();
+            })
             .then(post => {
-                document.title = post.title + " - 小象的技术栈";
-                document.getElementById('p-title').innerText = post.title;
-                document.getElementById('p-meta').innerText = `分类：${post.category} | 发布日期：${post.date}`;
-                
-                Vditor.preview(document.getElementById('p-content'), post.content, {
-                    theme: 'dark', hljs: { style: 'dracula' }
+                document.title = `${post.title} - 小象博客`;
+                titleEl.innerText = post.title;
+                metaEl.innerText = `${post.category || "未分类"} | 发布于 ${post.date || ""}${post.updatedAt ? " | 更新于 " + post.updatedAt : ""}`;
+                editLink.href = `admin.html?edit=${post.id}`;
+
+                Vditor.preview(contentEl, post.content || "", {
+                    theme: "dark",
+                    hljs: { style: "dracula" }
                 });
+            })
+            .catch(() => {
+                document.title = "文档不存在 - 小象博客";
+                titleEl.innerText = "文档不存在";
+                editLink.href = "admin.html";
+                metaEl.innerText = "";
+                contentEl.innerHTML = '<p class="empty">这篇文档可能已经被删除。</p>';
             });
     </script>
 </body>

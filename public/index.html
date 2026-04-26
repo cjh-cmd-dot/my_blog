@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>小象的技术栈</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小象博客</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,36 +13,125 @@
 
     <div class="page-content">
         <header class="site-header">
-            <div class="container">
-                <h1>小象的技术栈</h1>
-                <nav><a href="index.html">首页</a><a href="about.html">关于我</a><a href="admin.html">写文章</a></nav>
+            <div class="container header-row">
+                <h1>小象博客</h1>
+                <nav>
+                    <a href="index.html">首页</a>
+                    <a href="about.html">关于</a>
+                    <a href="admin.html">管理</a>
+                </nav>
             </div>
         </header>
+
         <main class="container">
             <section class="profile-card">
-                <div class="profile-avatar"><img src="assets/images/xiaoxiang.jpg" style="width:100%; height:100%; border-radius:50%; object-fit:cover;"></div>
+                <div class="profile-avatar"><img src="assets/images/xiaoxiang.jpg" alt="小象头像"></div>
                 <div class="profile-info">
-                    <h2>你好，我是陈俊豪</h2>
-                    <p>专注 ROS 2、嵌入式开发与机器人技术。</p>
-                    <p>正在探索轮腿机器人与计算机视觉的边界。 <a href="about.html" style="color:#ffd7e6; text-decoration:none;">了解更多 →</a></p>
+                    <h2>技术文档与项目笔记</h2>
+                    <p>记录 ROS 2、嵌入式、视觉算法和日常开发中踩过的坑。</p>
+                    <p>把零散经验整理成可检索、可分类、可持续修改的文档库。</p>
                 </div>
             </section>
 
-            <h2 style="margin-top:40px;">最新发布</h2>
-            <div id="post-list"></div>
+            <section class="list-tools">
+                <input type="search" id="search-input" placeholder="搜索标题、分类或正文">
+                <select id="category-filter">
+                    <option value="">全部分类</option>
+                </select>
+            </section>
+
+            <div id="category-tabs" class="category-tabs"></div>
+            <div id="post-list" class="post-list"></div>
         </main>
     </div>
+
     <script src="js/main.js"></script>
     <script>
-        fetch('/api/posts').then(res => res.json()).then(posts => {
-            const list = document.getElementById('post-list');
-            if(posts.length === 0) return list.innerHTML = '<p style="color:#fff;">暂无文章，去写一篇吧！</p>';
-            list.innerHTML = posts.map(post => `
-                <div class="card">
-                    <h3><a href="article.html?id=${post.id}">${post.title}</a></h3>
-                    <p class="meta-line">分类：${post.category} | ${post.date}</p>
-                </div>
-            `).join('');
+        const postList = document.getElementById("post-list");
+        const searchInput = document.getElementById("search-input");
+        const categoryFilter = document.getElementById("category-filter");
+        const categoryTabs = document.getElementById("category-tabs");
+        let posts = [];
+        let categories = [];
+
+        function escapeHtml(value) {
+            return String(value || "").replace(/[&<>"']/g, char => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            }[char]));
+        }
+
+        function getSummary(post) {
+            return (post.summary || post.content || "")
+                .replace(/[#>*_`[\]()!-]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 120);
+        }
+
+        function setCategory(category) {
+            categoryFilter.value = category;
+            renderPosts();
+        }
+
+        function renderCategories() {
+            categoryFilter.innerHTML = '<option value="">全部分类</option>' + categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("");
+            categoryTabs.innerHTML = `<button class="tab active" type="button" data-category="">全部</button>` + categories.map(category => `<button class="tab" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("");
+        }
+
+        function renderPosts() {
+            const keyword = searchInput.value.trim().toLowerCase();
+            const category = categoryFilter.value;
+
+            document.querySelectorAll(".tab").forEach(tab => {
+                tab.classList.toggle("active", tab.dataset.category === category);
+            });
+
+            const filtered = posts.filter(post => {
+                const haystack = `${post.title || ""} ${post.category || ""} ${post.summary || ""} ${post.content || ""}`.toLowerCase();
+                const hitKeyword = !keyword || haystack.includes(keyword);
+                const hitCategory = !category || (post.category || "未分类") === category;
+                return hitKeyword && hitCategory;
+            });
+
+            if (!filtered.length) {
+                postList.innerHTML = category
+                    ? `<p class="empty">“${escapeHtml(category)}”分类下暂时没有文档。</p>`
+                    : '<p class="empty">没有找到匹配的文档。</p>';
+                return;
+            }
+
+            postList.innerHTML = filtered.map(post => `
+                <article class="card post-card">
+                    <div>
+                        <p class="meta-line">${escapeHtml(post.category || "未分类")} | ${escapeHtml(post.date || "")}</p>
+                        <h3><a href="article.html?id=${post.id}">${escapeHtml(post.title)}</a></h3>
+                        <p>${escapeHtml(getSummary(post))}</p>
+                    </div>
+                    <a class="read-link" href="article.html?id=${post.id}">阅读全文</a>
+                </article>
+            `).join("");
+        }
+
+        Promise.all([
+            fetch("/api/posts").then(res => res.json()),
+            fetch("/api/categories").then(res => res.json())
+        ]).then(([postData, categoryData]) => {
+            posts = postData;
+            categories = categoryData;
+            renderCategories();
+            renderPosts();
+        });
+
+        searchInput.addEventListener("input", renderPosts);
+        categoryFilter.addEventListener("change", renderPosts);
+        categoryTabs.addEventListener("click", event => {
+            if (event.target.dataset.category !== undefined) {
+                setCategory(event.target.dataset.category);
+            }
         });
     </script>
 </body>

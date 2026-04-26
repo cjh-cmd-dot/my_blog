@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>发布文章 - 小象的技术栈</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档管理 - 小象博客</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/vditor/dist/index.css" />
 </head>
@@ -12,47 +13,325 @@
     <canvas id="sakura-canvas"></canvas>
 
     <div class="page-content">
-        <header class="site-header"><div class="container"><h1>发布新文章</h1><nav><a href="index.html">返回首页</a></nav></div></header>
-        <main class="container">
-            <div class="card">
-                <input type="password" id="admin-pwd" placeholder="请输入管理员密码" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
-                <input type="text" id="post-title" placeholder="输入文章标题..." style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
-                <input type="text" id="post-cate" placeholder="分类（如：ROS 2, ESP32）" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:none; outline:none; font-family: inherit;">
-                <div id="vditor"></div>
-                <button onclick="submitPost()" class="tool-btn" style="margin-top: 15px; width: 100%;">确认发布</button>
+        <header class="site-header">
+            <div class="container header-row">
+                <h1>文档管理</h1>
+                <nav>
+                    <a href="index.html">首页</a>
+                    <a href="admin.html">新建文档</a>
+                </nav>
             </div>
+        </header>
+
+        <main class="container admin-layout">
+            <section class="card editor-panel">
+                <div class="section-title">
+                    <h2 id="form-title">新建文档</h2>
+                    <button id="reset-btn" class="ghost-btn" type="button">清空</button>
+                </div>
+
+                <div class="form-grid">
+                    <label>
+                        管理密码
+                        <input type="password" id="admin-pwd" placeholder="输入管理员密码">
+                    </label>
+                    <label>
+                        文档标题
+                        <input type="text" id="post-title" placeholder="例如：ROS2 调试笔记">
+                    </label>
+                    <label>
+                        文档分类
+                        <input type="text" id="post-cate" list="category-options" placeholder="选择或输入新分类">
+                        <datalist id="category-options"></datalist>
+                    </label>
+                    <label>
+                        摘要
+                        <input type="text" id="post-summary" placeholder="可选，留空则首页显示正文开头">
+                    </label>
+                </div>
+
+                <div id="vditor"></div>
+
+                <div class="admin-actions">
+                    <button id="submit-btn" class="tool-btn" type="button">发布文档</button>
+                    <button id="delete-current-btn" class="danger-btn hidden" type="button">删除当前文档</button>
+                </div>
+            </section>
+
+            <aside class="card manage-panel">
+                <div class="section-title">
+                    <h2>分类管理</h2>
+                    <span id="category-count" class="pill">0 个</span>
+                </div>
+                <div class="category-create">
+                    <input type="text" id="new-category" placeholder="新建分类名称">
+                    <button id="create-category-btn" class="tool-btn" type="button">新建</button>
+                </div>
+                <input type="search" id="category-search" placeholder="检索已建分类">
+                <div id="category-list" class="category-list"></div>
+
+                <div class="section-title document-title">
+                    <h2>文档列表</h2>
+                    <span id="post-count" class="pill">0 篇</span>
+                </div>
+                <div class="toolbar">
+                    <input type="search" id="manage-search" placeholder="搜索标题或分类">
+                    <select id="manage-category">
+                        <option value="">全部分类</option>
+                    </select>
+                </div>
+                <div id="manage-list" class="manage-list"></div>
+            </aside>
         </main>
     </div>
 
     <script src="https://unpkg.com/vditor/dist/index.min.js"></script>
     <script src="js/main.js"></script>
     <script>
-        const vditor = new Vditor('vditor', {
-            height: 500,
-            placeholder: '在此输入内容，支持粘贴图片和代码块...',
-            theme: 'dark', preview: { theme: { current: 'dark' } }, cache: { enable: false }
+        const state = {
+            posts: [],
+            categories: [],
+            editingId: null,
+            editorReady: false
+        };
+
+        const fields = {
+            password: document.getElementById("admin-pwd"),
+            title: document.getElementById("post-title"),
+            category: document.getElementById("post-cate"),
+            summary: document.getElementById("post-summary"),
+            formTitle: document.getElementById("form-title"),
+            submit: document.getElementById("submit-btn"),
+            reset: document.getElementById("reset-btn"),
+            deleteCurrent: document.getElementById("delete-current-btn"),
+            newCategory: document.getElementById("new-category"),
+            createCategory: document.getElementById("create-category-btn"),
+            categorySearch: document.getElementById("category-search"),
+            categoryList: document.getElementById("category-list"),
+            categoryCount: document.getElementById("category-count"),
+            manageList: document.getElementById("manage-list"),
+            manageSearch: document.getElementById("manage-search"),
+            manageCategory: document.getElementById("manage-category"),
+            categoryOptions: document.getElementById("category-options"),
+            postCount: document.getElementById("post-count")
+        };
+
+        fields.password.value = localStorage.getItem("adminPassword") || "";
+
+        const vditor = new Vditor("vditor", {
+            height: 460,
+            placeholder: "在这里写 Markdown 文档，支持代码块、图片链接和表格。",
+            theme: "dark",
+            preview: { theme: { current: "dark" } },
+            cache: { enable: false },
+            after: () => {
+                state.editorReady = true;
+                loadData();
+            }
         });
 
-        function submitPost() {
-            const title = document.getElementById('post-title').value;
-            const category = document.getElementById('post-cate').value;
-            const password = document.getElementById('admin-pwd').value;
-            const content = vditor.getValue();
-
-            if(!title || !content || !password) return alert("标题、内容和密码不能为空");
-
-            fetch('/api/posts', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ title, category, content, password })
-            }).then(res => res.json()).then(data => {
-                if(data.success) {
-                    alert('发布成功！'); window.location.href = 'index.html';
-                } else {
-                    alert(data.message);
-                }
-            });
+        function escapeHtml(value) {
+            return String(value || "").replace(/[&<>"']/g, char => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            }[char]));
         }
+
+        function getSummary(post) {
+            return (post.summary || post.content || "")
+                .replace(/[#>*_`[\]()!-]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 90);
+        }
+
+        async function loadData() {
+            const [posts, categories] = await Promise.all([
+                fetch("/api/posts").then(res => res.json()),
+                fetch("/api/categories").then(res => res.json())
+            ]);
+            state.posts = posts;
+            state.categories = categories;
+            renderCategoryControls();
+            renderManageList();
+
+            const idFromUrl = new URLSearchParams(location.search).get("edit");
+            if (idFromUrl) {
+                editPost(idFromUrl, false);
+            }
+        }
+
+        function renderCategoryControls() {
+            fields.categoryOptions.innerHTML = state.categories.map(item => `<option value="${escapeHtml(item)}"></option>`).join("");
+            fields.manageCategory.innerHTML = '<option value="">全部分类</option>' + state.categories.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
+            fields.categoryCount.textContent = `${state.categories.length} 个`;
+            fields.postCount.textContent = `${state.posts.length} 篇`;
+            renderCategoryList();
+        }
+
+        function renderCategoryList() {
+            const keyword = fields.categorySearch.value.trim().toLowerCase();
+            const filtered = state.categories.filter(category => !keyword || category.toLowerCase().includes(keyword));
+            fields.categoryList.innerHTML = filtered.length ? filtered.map(category => {
+                const count = state.posts.filter(post => (post.category || "未分类") === category).length;
+                return `<button class="category-chip" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}<span>${count}</span></button>`;
+            }).join("") : '<p class="empty">没有匹配的分类。</p>';
+        }
+
+        function renderManageList() {
+            const keyword = fields.manageSearch.value.trim().toLowerCase();
+            const category = fields.manageCategory.value;
+            const filtered = state.posts.filter(post => {
+                const hitKeyword = !keyword || `${post.title} ${post.category}`.toLowerCase().includes(keyword);
+                const hitCategory = !category || (post.category || "未分类") === category;
+                return hitKeyword && hitCategory;
+            });
+
+            fields.manageList.innerHTML = filtered.length ? filtered.map(post => `
+                <article class="manage-item">
+                    <div>
+                        <h3>${escapeHtml(post.title)}</h3>
+                        <p class="meta-line">${escapeHtml(post.category || "未分类")} | ${escapeHtml(post.date || "")}</p>
+                        <p>${escapeHtml(getSummary(post))}</p>
+                    </div>
+                    <div class="row-actions">
+                        <a class="ghost-btn" href="article.html?id=${post.id}">查看</a>
+                        <button class="ghost-btn" type="button" data-edit="${post.id}">编辑</button>
+                        <button class="danger-btn" type="button" data-delete="${post.id}">删除</button>
+                    </div>
+                </article>
+            `).join("") : '<p class="empty">没有匹配的文档。</p>';
+        }
+
+        function editPost(id, updateUrl = true) {
+            const post = state.posts.find(item => String(item.id) === String(id));
+            if (!post || !state.editorReady) return;
+
+            state.editingId = post.id;
+            fields.formTitle.textContent = "修改文档";
+            fields.submit.textContent = "保存修改";
+            fields.deleteCurrent.classList.remove("hidden");
+            fields.title.value = post.title || "";
+            fields.category.value = post.category || "";
+            fields.summary.value = post.summary || "";
+            vditor.setValue(post.content || "");
+            if (updateUrl) history.replaceState(null, "", `admin.html?edit=${post.id}`);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function resetForm() {
+            state.editingId = null;
+            fields.formTitle.textContent = "新建文档";
+            fields.submit.textContent = "发布文档";
+            fields.deleteCurrent.classList.add("hidden");
+            fields.title.value = "";
+            fields.category.value = "";
+            fields.summary.value = "";
+            vditor.setValue("");
+            history.replaceState(null, "", "admin.html");
+        }
+
+        async function createCategory() {
+            const name = fields.newCategory.value.trim();
+            const password = fields.password.value;
+            if (!password || !name) {
+                alert("请填写管理员密码和分类名称。");
+                return;
+            }
+
+            localStorage.setItem("adminPassword", password);
+            const res = await fetch("/api/categories", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password, name })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? "分类已创建" : "创建失败"));
+            if (data.success) {
+                fields.newCategory.value = "";
+                fields.category.value = name;
+                await loadData();
+            }
+        }
+
+        async function savePost() {
+            const payload = {
+                password: fields.password.value,
+                title: fields.title.value,
+                category: fields.category.value,
+                summary: fields.summary.value,
+                content: vditor.getValue()
+            };
+
+            if (!payload.password || !payload.title.trim() || !payload.content.trim()) {
+                alert("请填写管理员密码、标题和正文。");
+                return;
+            }
+
+            localStorage.setItem("adminPassword", payload.password);
+            const url = state.editingId ? `/api/posts/${state.editingId}` : "/api/posts";
+            const method = state.editingId ? "PUT" : "POST";
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? "保存成功" : "保存失败"));
+            if (data.success) {
+                await loadData();
+                if (!state.editingId) resetForm();
+            }
+        }
+
+        async function deletePost(id) {
+            const password = fields.password.value;
+            if (!password) {
+                alert("请先填写管理员密码。");
+                return;
+            }
+            const post = state.posts.find(item => String(item.id) === String(id));
+            if (!confirm(`确定删除《${post ? post.title : "这篇文档"}》吗？此操作不可恢复。`)) return;
+
+            const res = await fetch(`/api/posts/${id}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password })
+            });
+            const data = await res.json();
+            alert(data.message || (data.success ? "删除成功" : "删除失败"));
+            if (data.success) {
+                if (String(state.editingId) === String(id)) resetForm();
+                await loadData();
+            }
+        }
+
+        fields.submit.addEventListener("click", savePost);
+        fields.reset.addEventListener("click", resetForm);
+        fields.deleteCurrent.addEventListener("click", () => deletePost(state.editingId));
+        fields.createCategory.addEventListener("click", createCategory);
+        fields.newCategory.addEventListener("keydown", event => {
+            if (event.key === "Enter") createCategory();
+        });
+        fields.categorySearch.addEventListener("input", renderCategoryList);
+        fields.categoryList.addEventListener("click", event => {
+            const button = event.target.closest("[data-category]");
+            if (!button) return;
+            fields.category.value = button.dataset.category;
+            fields.manageCategory.value = button.dataset.category;
+            renderManageList();
+        });
+        fields.manageSearch.addEventListener("input", renderManageList);
+        fields.manageCategory.addEventListener("change", renderManageList);
+        fields.manageList.addEventListener("click", event => {
+            const editId = event.target.dataset.edit;
+            const deleteId = event.target.dataset.delete;
+            if (editId) editPost(editId);
+            if (deleteId) deletePost(deleteId);
+        });
     </script>
 </body>
 </html>
